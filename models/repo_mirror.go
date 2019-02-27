@@ -291,6 +291,12 @@ func updateMirror(e Engine, m *Mirror) error {
 	return err
 }
 
+// InsertMirror inserts a mirror
+func InsertMirror(m *Mirror) error {
+	_, err := x.Insert(m)
+	return err
+}
+
 // UpdateMirror updates the mirror
 func UpdateMirror(m *Mirror) error {
 	return updateMirror(x, m)

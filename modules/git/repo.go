@@ -64,6 +64,25 @@ func IsRepoURLAccessible(url string) bool {
 	return true
 }
 
+/*
+	GitHub, GitLab, Gogs: *.wiki.git
+	BitBucket: *.git/wiki
+*/
+var commonWikiURLSuffixes = []string{".wiki.git", ".git/wiki"}
+
+// WikiRemoteURL returns accessible repository URL for wiki if exists.
+// Otherwise, it returns an empty string.
+func WikiRemoteURL(remote string) string {
+	remote = strings.TrimSuffix(remote, ".git")
+	for _, suffix := range commonWikiURLSuffixes {
+		wikiURL := remote + suffix
+		if IsRepoURLAccessible(wikiURL) {
+			return wikiURL
+		}
+	}
+	return ""
+}
+
 // InitRepository initializes a new Git repository.
 func InitRepository(repoPath string, bare bool) error {
 	os.MkdirAll(repoPath, os.ModePerm)

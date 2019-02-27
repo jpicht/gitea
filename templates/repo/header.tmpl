@@ -42,7 +42,7 @@
 		</div><!-- end grid -->
 	</div><!-- end container -->
 {{end}}
-{{if not .IsDiffCompare}}
+{{if and (not .IsDiffCompare) (not .Repository.IsCreating)}}
 	<div class="ui tabs container">
 		<div class="ui tabular stackable menu navbar">
 			{{if .Permission.CanRead $.UnitTypeCode}}

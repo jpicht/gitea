@@ -18,6 +18,7 @@ import (
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/migrations"
 	"code.gitea.io/gitea/modules/setting"
+	"code.gitea.io/gitea/modules/task"
 	"code.gitea.io/gitea/modules/util"
 
 	"github.com/Unknwon/com"
@@ -276,44 +277,35 @@ func MigratePost(ctx *context.Context, form auth.MigrateRepoForm) {
 		opts.Releases = false
 	}
 
-	repo, err := migrations.MigrateRepository(ctx.User, ctxUser.Name, opts)
-	if err == nil {
-		log.Trace("Repository migrated [%d]: %s/%s successfully", repo.ID, ctxUser.Name, form.RepoName)
-		ctx.Redirect(setting.AppSubURL + "/" + ctxUser.Name + "/" + form.RepoName)
-		return
-	}
+	err = models.CheckCreateRepository(ctx.User, ctxUser, opts.Name)
+	if err != nil {
+		if models.IsErrRepoAlreadyExist(err) {
+			ctx.RenderWithErr(ctx.Tr("form.repo_name_been_taken"), tplMigrate, &form)
+			return
+		}
 
-	switch {
-	case models.IsErrReachLimitOfRepo(err):
-		ctx.RenderWithErr(ctx.Tr("repo.form.reach_limit_of_creation", ctxUser.MaxCreationLimit()), tplMigrate, &form)
-	case models.IsErrNameReserved(err):
-		ctx.Data["Err_RepoName"] = true
-		ctx.RenderWithErr(ctx.Tr("repo.form.name_reserved", err.(models.ErrNameReserved).Name), tplMigrate, &form)
-	case models.IsErrRepoAlreadyExist(err):
-		ctx.Data["Err_RepoName"] = true
-		ctx.RenderWithErr(ctx.Tr("form.repo_name_been_taken"), tplMigrate, &form)
-	case models.IsErrNamePatternNotAllowed(err):
-		ctx.Data["Err_RepoName"] = true
-		ctx.RenderWithErr(ctx.Tr("repo.form.name_pattern_not_allowed", err.(models.ErrNamePatternNotAllowed).Pattern), tplMigrate, &form)
-	case migrations.IsRateLimitError(err):
-		ctx.RenderWithErr(ctx.Tr("form.visit_rate_limit"), tplMigrate, &form)
-	case migrations.IsTwoFactorAuthError(err):
-		ctx.Data["Err_Auth"] = true
-		ctx.RenderWithErr(ctx.Tr("form.2fa_auth_required"), tplMigrate, &form)
-	default:
 		// remoteAddr may contain credentials, so we sanitize it
 		err = util.URLSanitizedError(err, remoteAddr)
+
 		if strings.Contains(err.Error(), "Authentication failed") ||
-			strings.Contains(err.Error(), "Bad credentials") ||
 			strings.Contains(err.Error(), "could not read Username") {
 			ctx.Data["Err_Auth"] = true
 			ctx.RenderWithErr(ctx.Tr("form.auth_failed", err.Error()), tplMigrate, &form)
+			return
 		} else if strings.Contains(err.Error(), "fatal:") {
 			ctx.Data["Err_CloneAddr"] = true
 			ctx.RenderWithErr(ctx.Tr("repo.migrate.failed", err.Error()), tplMigrate, &form)
-		} else {
-			ctx.ServerError("MigratePost", err)
+			return
 		}
+
+		handleCreateError(ctx, ctxUser, err, "MigratePost", tplMigrate, &form)
+		return
+	}
+
+	err = task.MigrateRepository(ctx.User, ctxUser, opts)
+	if err == nil {
+		ctx.Redirect(setting.AppSubURL + "/" + ctxUser.Name + "/" + opts.Name)
+		return
 	}
 }
 
@@ -451,4 +443,11 @@ func Download(ctx *context.Context) {
 	}
 
 	ctx.ServeFile(archivePath, ctx.Repo.Repository.Name+"-"+refName+ext)
+}
+
+// Status returns repository's status
+func Status(ctx *context.Context) {
+	ctx.JSON(200, map[string]interface{}{
+		"status": ctx.Repo.Repository.Status,
+	})
 }

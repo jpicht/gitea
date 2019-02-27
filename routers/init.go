@@ -21,6 +21,7 @@ import (
 	"code.gitea.io/gitea/modules/markup"
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/ssh"
+	"code.gitea.io/gitea/modules/task"
 
 	macaron "gopkg.in/macaron.v1"
 )
@@ -98,6 +99,9 @@ func GlobalInit() {
 		models.InitSyncMirrors()
 		models.InitDeliverHooks()
 		models.InitTestPullRequests()
+		if err := task.Init(); err != nil {
+			log.Fatal("Failed to initialize task: %v", err)
+		}
 		log.NewGitLogger(path.Join(setting.LogRootPath, "http.log"))
 	}
 	if models.EnableSQLite3 {

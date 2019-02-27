@@ -23,6 +23,7 @@ import (
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/util"
 
+	"github.com/Unknwon/com"
 	gouuid "github.com/satori/go.uuid"
 )
 
@@ -60,17 +61,31 @@ func (g *GiteaLocalUploader) CreateRepo(repo *base.Repository, includeWiki bool)
 		return err
 	}
 
-	r, err := models.MigrateRepository(g.doer, owner, models.MigrateRepoOptions{
+	var opts = MigrateOptions{
 		Name:        g.repoName,
 		Description: repo.Description,
-		IsMirror:    repo.IsMirror,
-		RemoteAddr:  repo.CloneURL,
-		IsPrivate:   repo.IsPrivate,
+		Mirror:      repo.IsMirror,
+		RemoteURL:   repo.CloneURL,
+		Private:     repo.IsPrivate,
 		Wiki:        includeWiki,
+	}
+
+	r, err := models.CreateRepository(g.doer, owner, models.CreateRepoOptions{
+		Name:        opts.Name,
+		Description: opts.Description,
+		IsPrivate:   opts.Private,
+		IsMirror:    opts.Mirror,
+		Status:      models.RepositoryCreating,
 	})
 	if err != nil {
 		return err
 	}
+
+	r, err = MigrateRepositoryGitData(g.doer, owner, r, opts)
+	if err != nil {
+		return err
+	}
+
 	g.repo = r
 	g.gitRepo, err = git.OpenRepository(r.RepoPath())
 	return err
@@ -400,4 +415,113 @@ func (g *GiteaLocalUploader) Rollback() error {
 		}
 	}
 	return nil
+}
+
+// MigrateRepositoryGitData starts migrating git related data after created migrating repository
+func MigrateRepositoryGitData(doer, u *models.User, repo *models.Repository, opts MigrateOptions) (*models.Repository, error) {
+	repoPath := models.RepoPath(u.Name, opts.Name)
+
+	if u.IsOrganization() {
+		t, err := u.GetOwnerTeam()
+		if err != nil {
+			return nil, err
+		}
+		repo.NumWatches = t.NumMembers
+	} else {
+		repo.NumWatches = 1
+	}
+
+	migrateTimeout := time.Duration(setting.Git.Timeout.Migrate) * time.Second
+
+	var err error
+	if err = os.RemoveAll(repoPath); err != nil {
+		return repo, fmt.Errorf("Failed to remove %s: %v", repoPath, err)
+	}
+
+	if err = git.Clone(opts.RemoteURL, repoPath, git.CloneRepoOptions{
+		Mirror:  true,
+		Quiet:   true,
+		Timeout: migrateTimeout,
+	}); err != nil {
+		return repo, fmt.Errorf("Clone: %v", err)
+	}
+
+	if opts.Wiki {
+		wikiPath := models.WikiPath(u.Name, opts.Name)
+		wikiRemotePath := git.WikiRemoteURL(opts.RemoteURL)
+		if len(wikiRemotePath) > 0 {
+			if err := os.RemoveAll(wikiPath); err != nil {
+				return repo, fmt.Errorf("Failed to remove %s: %v", wikiPath, err)
+			}
+
+			if err = git.Clone(wikiRemotePath, wikiPath, git.CloneRepoOptions{
+				Mirror:  true,
+				Quiet:   true,
+				Timeout: migrateTimeout,
+				Branch:  "master",
+			}); err != nil {
+				log.Warn("Clone wiki: %v", err)
+				if err := os.RemoveAll(wikiPath); err != nil {
+					return repo, fmt.Errorf("Failed to remove %s: %v", wikiPath, err)
+				}
+			}
+		}
+	}
+
+	// Check if repository is empty.
+	_, stderr, err := com.ExecCmdDir(repoPath, "git", "log", "-1")
+	if err != nil {
+		if strings.Contains(stderr, "fatal: bad default revision 'HEAD'") {
+			repo.IsEmpty = true
+		} else {
+			return repo, fmt.Errorf("check empty: %v - %s", err, stderr)
+		}
+	} else {
+		repo.IsEmpty = false
+	}
+
+	if !repo.IsEmpty {
+		// Try to get HEAD branch and set it as default branch.
+		gitRepo, err := git.OpenRepository(repoPath)
+		if err != nil {
+			return repo, fmt.Errorf("OpenRepository: %v", err)
+		}
+		headBranch, err := gitRepo.GetHEADBranch()
+		if err != nil {
+			return repo, fmt.Errorf("GetHEADBranch: %v", err)
+		}
+		if headBranch != nil {
+			repo.DefaultBranch = headBranch.Name
+		}
+
+		if err = models.SyncReleasesWithTags(repo, gitRepo); err != nil {
+			log.Error("Failed to synchronize tags to releases for repository: %v", err)
+		}
+	}
+
+	if err = repo.UpdateSize(); err != nil {
+		log.Error("Failed to update size for repository: %v", err)
+	}
+
+	if opts.Mirror {
+		if err = models.InsertMirror(&models.Mirror{
+			RepoID:         repo.ID,
+			Interval:       setting.Mirror.DefaultInterval,
+			EnablePrune:    true,
+			NextUpdateUnix: util.TimeStampNow().AddDuration(setting.Mirror.DefaultInterval),
+		}); err != nil {
+			return repo, fmt.Errorf("InsertOne: %v", err)
+		}
+
+		repo.IsMirror = true
+		err = models.UpdateRepository(repo, false)
+	} else {
+		repo, err = models.CleanUpMigrateInfo(repo)
+	}
+
+	if err != nil && !repo.IsEmpty {
+		models.UpdateRepoIndexer(repo)
+	}
+
+	return repo, err
 }
