@@ -104,19 +104,6 @@ func (task *Task) DecodeConfig(opts interface{}) error {
 	return json.Unmarshal([]byte(task.PayloadContent), opts)
 }
 
-// MigrateConfig returns task config when migrate repository
-/*func (task *Task) MigrateConfig() (*structs.MigrateRepoOptions, error) {
-	if task.Type == structs.TaskTypeMigrateRepo {
-		var opts structs.MigrateRepoOptions
-		err :=
-		if err != nil {
-			return nil, err
-		}
-		return &opts, nil
-	}
-	return nil, fmt.Errorf("Task type is %s, not Migrate Repo", task.Type)
-}*/
-
 // ErrTaskIsNotExist represents a "TaskIsNotExist" kind of error.
 type ErrTaskIsNotExist struct {
 	ID     int64
