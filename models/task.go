@@ -24,7 +24,7 @@ type Task struct {
 	RepoID         int64       `xorm:"index"`
 	Repo           *Repository `xorm:"-"`
 	Type           structs.TaskType
-	Status         structs.TaskStatus
+	Status         structs.TaskStatus `xorm:"index"`
 	StartTime      util.TimeStamp
 	EndTime        util.TimeStamp
 	PayloadContent string         `xorm:"TEXT"`
