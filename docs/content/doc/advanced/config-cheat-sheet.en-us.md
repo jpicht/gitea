@@ -472,8 +472,15 @@ Two special environment variables are passed to the render command:
 - `GITEA_PREFIX_SRC`, which contains the current URL prefix in the `src` path tree. To be used as prefix for links.
 - `GITEA_PREFIX_RAW`, which contains the current URL prefix in the `raw` path tree. To be used as prefix for image paths.
 
+## Task (`task`)
+
+- `QUEUE_TYPE`: **channel**: Task queue type, could be `channel` or `redis`.
+- `QUEUE_LENGTH`: **1000**: Task queue length, available only when `QUEUE_TYPE` is `channel`.
+- `QUEUE_CONN_STR`: **addrs=127.0.0.1:6379 db=0**: Task queue connction string, available only when `QUEUE_TYPE` is `redis`. If there is a password of redis, use `addrs=127.0.0.1:6379 password=123 db=0`.
+
 ## Other (`other`)
 
 - `SHOW_FOOTER_BRANDING`: **false**: Show Gitea branding in the footer.
 - `SHOW_FOOTER_VERSION`: **true**: Show Gitea version information in the footer.
 - `SHOW_FOOTER_TEMPLATE_LOAD_TIME`: **true**: Show time of template execution in the footer.
+

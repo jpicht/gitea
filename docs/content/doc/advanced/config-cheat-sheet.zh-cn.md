@@ -235,7 +235,11 @@ IS_INPUT_FILE = false
 - RENDER_COMMAND: 工具的命令行命令及参数。
 - IS_INPUT_FILE: 输入方式是最后一个参数为文件路径还是从标准输入读取。
 
+## Task (`task`)
 
+- `QUEUE_TYPE`: **channel**: 任务队列类型，可以为 `channel` 或 `redis`。
+- `QUEUE_LENGTH`: **1000**: 任务队列长度，当 `QUEUE_TYPE` 为 `channel` 时有效。
+- `QUEUE_CONN_STR`: **addrs=127.0.0.1:6379 db=0**: 任务队列连接字符串，当 `QUEUE_TYPE` 为 `redis` 时有效。如果redis有密码，则可以 `addrs=127.0.0.1:6379 password=123 db=0`。
 
 ## Other (`other`)
 
