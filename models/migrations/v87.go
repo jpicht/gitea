@@ -26,7 +26,7 @@ func addTaskTable(x *xorm.Engine) error {
 	}
 
 	type Repository struct {
-		Status int
+		Status int `xorm:"NOT NULL DEFAULT 0"`
 	}
 
 	return x.Sync2(new(Task), new(Repository))
