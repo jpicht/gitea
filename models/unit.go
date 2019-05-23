@@ -83,7 +83,9 @@ func getDefaultRepoUnits() []UnitType {
 		UnitTypeCode,
 		UnitTypePullRequests,
 		UnitTypeReleases,
-		UnitTypeIssues,
+	}
+	if setting.Service.EnableIssues {
+		units = append(units, UnitTypeIssues)
 	}
 	if setting.Service.EnableWiki {
 		units = append(units, UnitTypeWiki)
