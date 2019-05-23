@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"code.gitea.io/gitea/modules/log"
+	"code.gitea.io/gitea/modules/setting"
 )
 
 // UnitType is Unit's Type
@@ -83,7 +84,9 @@ func getDefaultRepoUnits() []UnitType {
 		UnitTypePullRequests,
 		UnitTypeReleases,
 		UnitTypeIssues,
-		UnitTypeWiki,
+	}
+	if setting.Service.EnableWiki {
+		units = append(units, UnitTypeWiki)
 	}
 	return units
 }
