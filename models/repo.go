@@ -1275,8 +1275,9 @@ func createRepository(e *xorm.Session, doer, u *User, repo *Repository) (err err
 	}
 
 	// insert units for repo
-	var units = make([]RepoUnit, 0, len(DefaultRepoUnits))
-	for _, tp := range DefaultRepoUnits {
+	defaultRepoUnits := getDefaultRepoUnits()
+	var units = make([]RepoUnit, 0, len(defaultRepoUnits))
+	for _, tp := range defaultRepoUnits {
 		if tp == UnitTypeIssues {
 			units = append(units, RepoUnit{
 				RepoID: repo.ID,

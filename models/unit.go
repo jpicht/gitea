@@ -69,21 +69,24 @@ var (
 		UnitTypeExternalTracker,
 	}
 
-	// DefaultRepoUnits contains the default unit types
-	DefaultRepoUnits = []UnitType{
-		UnitTypeCode,
-		UnitTypeIssues,
-		UnitTypePullRequests,
-		UnitTypeReleases,
-		UnitTypeWiki,
-	}
-
 	// MustRepoUnits contains the units could not be disabled currently
 	MustRepoUnits = []UnitType{
 		UnitTypeCode,
 		UnitTypeReleases,
 	}
 )
+
+// getDefaultRepoUnits returns the default unit types
+func getDefaultRepoUnits() []UnitType {
+	units := []UnitType{
+		UnitTypeCode,
+		UnitTypePullRequests,
+		UnitTypeReleases,
+		UnitTypeIssues,
+		UnitTypeWiki,
+	}
+	return units
+}
 
 // Unit is a section of one repository
 type Unit struct {
